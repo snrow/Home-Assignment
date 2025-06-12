@@ -1,0 +1,7 @@
+tf_state_bucket_name = "terraform-state-bucket-eliran-prod"
+s3_bucket_name       = "data-bucket-eliran-prod"
+sqs_queue_name       = "prod-data-queue"
+# vpc_cidr             = "10.0.0.0/16"
+# subnet_cidr          = "10.0.1.0/24"
+# elb_name             = "eliran-alb"
+# ecs_cluster_name     = "eliran-prod-cluster"
