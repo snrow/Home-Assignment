@@ -2,26 +2,17 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-module "s3_state" {
-  source            = "../../modules/infrastructure/s3_state"
-  state_bucket_name = var.tf_state_bucket_name
-}
-
-module "s3_app" {
-  source      = "../../modules/infrastructure/s3_app"
-  bucket_name = var.s3_bucket_name
-}
-
 module "sqs" {
   source     = "../../modules/infrastructure/sqs"
   queue_name = var.sqs_queue_name
 }
 
-# module "vpc" {
-#   source       = "../../modules/networking/vpc"
-#   vpc_cidr     = var.vpc_cidr
-#   subnet_cidr  = var.subnet_cidr
-# }
+module "vpc" {
+  source       = "../../modules/networking/vpc"
+  vpc_name     = var.vpc_name
+  vpc_cidr     = var.vpc_cidr
+  subnet_cidr  = var.subnet_cidr
+}
 
 # module "elb" {
 #   source     = "../../modules/networking/elb"
