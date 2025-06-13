@@ -1,12 +1,7 @@
-variable "vpc_name" {
-  description = "Name of the VPC"
-  type        = string
-}
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-}
-variable "subnet_cidr" {
-  description = "CIDR block for the public subnet"
-  type        = string
-}
+variable "vpc_name" { type = string }
+variable "vpc_cidr" { type = string }
+variable "subnet_cidr_a" { type = string }
+variable "subnet_cidr_b" { type = string }
+variable "subnet_cidr_private_a" { type = string }
+variable "subnet_cidr_private_b" { type = string }
+variable "region" { type = string }

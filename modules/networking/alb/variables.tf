@@ -1,12 +1,4 @@
-variable "alb_name" {
-  description = "Name of the ALB"
-  type        = string
-}
-variable "subnet_id" {
-  description = "Subnet ID for the ALB"
-  type        = string
-}
-variable "vpc_id" {
-  description = "VPC ID for the ALB"
-  type        = string
-}
+variable "alb_name" { type = string }
+variable "public_subnet_ids" { type = list(string) }
+variable "vpc_id" { type = string }
+variable "private_subnet_cidrs" { type = list(string) }

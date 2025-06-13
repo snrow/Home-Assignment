@@ -6,19 +6,17 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow public HTTP access
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow all outbound
+    from_port   = 5000  # Allow outbound to Microservice 1
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = var.private_subnet_cidrs  # Restrict to private subnets
   }
 
-  tags = {
-    Name = "${var.alb_name}-sg"
-  }
+  tags = { Name = "${var.alb_name}-sg" }
 }
 
 resource "aws_lb" "main" {
@@ -26,12 +24,9 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [var.subnet_id]  # Single subnet for simplicity; add more for HA
+  subnets            = var.public_subnet_ids
   enable_deletion_protection = false
-
-  tags = {
-    Name = var.alb_name
-  }
+  tags = { Name = var.alb_name }
 }
 
 resource "aws_lb_target_group" "ms1_tg" {
@@ -39,11 +34,10 @@ resource "aws_lb_target_group" "ms1_tg" {
   port        = 5000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = "ip"  # For ECS Fargate
-
+  target_type = "ip"
   health_check {
     enabled             = true
-    path                = "/health"  # Adjust if Microservice 1 uses a different endpoint
+    path                = "/health"
     port                = "5000"
     protocol            = "HTTP"
     matcher             = "200"
@@ -52,17 +46,13 @@ resource "aws_lb_target_group" "ms1_tg" {
     healthy_threshold   = 2
     unhealthy_threshold = 2
   }
-
-  tags = {
-    Name = "${var.alb_name}-tg"
-  }
+  tags = { Name = "${var.alb_name}-tg" }
 }
 
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
-
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.ms1_tg.arn
