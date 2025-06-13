@@ -14,12 +14,12 @@ module "vpc" {
   subnet_cidr  = var.subnet_cidr
 }
 
-# module "elb" {
-#   source     = "../../modules/networking/elb"
-#   elb_name   = var.elb_name
-#   subnet_id  = module.vpc.subnet_id
-#   vpc_id     = module.vpc.vpc_id
-# }
+module "elb" {
+  source     = "../../modules/networking/alb"
+  alb_name   = var.alb_name
+  subnet_id  = module.vpc.subnet_id
+  vpc_id     = module.vpc.vpc_id
+}
 
 # module "ecs" {
 #   source        = "../../modules/compute/ecs"
