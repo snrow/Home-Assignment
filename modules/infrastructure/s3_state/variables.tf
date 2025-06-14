@@ -1,4 +1,4 @@
 variable "state_bucket_name" {
-  description = "terraform-state-bucket-eliran"
+  description = "Name of the S3 bucket for Terraform state"
   type        = string
 }

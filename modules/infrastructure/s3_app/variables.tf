@@ -1,4 +1,4 @@
 variable "bucket_name" {
-  description = "data-bucket-eliran"
+  description = "Name of the application S3 bucket"
   type        = string
 }

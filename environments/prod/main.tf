@@ -2,6 +2,15 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+data "terraform_remote_state" "root" {
+  backend = "s3"
+  config = {
+    bucket = "terraform-state-bucket-eliran"
+    key    = "global/terraform.tfstate"
+    region = "eu-central-1"
+  }
+}
+
 module "sqs" {
   source     = "../../modules/infrastructure/sqs"
   queue_name = var.sqs_queue_name
@@ -27,12 +36,14 @@ module "alb" {
   depends_on          = [module.vpc]
 }
 
-# module "ecs" {
-#   source            = "../../modules/compute/ecs"
-#   cluster_name      = var.ecs_cluster_name
-#   s3_bucket_arn     = module.s3_app.bucket_arn
-#   sqs_queue_url     = module.sqs.queue_url
-#   private_subnet_ids = module.vpc.private_subnet_ids
-#   vpc_id            = module.vpc.vpc_id
-#   alb_sg_id         = module.alb.alb_sg_id
-# }
+module "ecs" {
+  source            = "../../modules/compute/ecs"
+  cluster_name      = var.ecs_cluster_name
+  s3_bucket_arn     = data.terraform_remote_state.root.outputs.app_data_bucket_arn
+  sqs_queue_url     = module.sqs.queue_url
+  private_subnet_ids = module.vpc.private_subnet_ids
+  vpc_id            = module.vpc.vpc_id
+  alb_sg_id         = module.alb.alb_sg_id
+  target_group_arn  = module.alb.target_group_arn
+  depends_on        = [module.vpc, module.alb]
+}
