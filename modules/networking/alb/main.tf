@@ -29,7 +29,7 @@ resource "aws_lb" "main" {
   tags = { Name = var.alb_name }
 }
 
-resource "aws_lb_target_group" "ms1_tg" {
+resource "aws_lb_target_group" "frontend_service_tg" {
   name        = "${var.alb_name}-tg"
   port        = 5000
   protocol    = "HTTP"
@@ -37,7 +37,7 @@ resource "aws_lb_target_group" "ms1_tg" {
   target_type = "ip"
   health_check {
     enabled             = true
-    path                = "/health"
+    path                = "/"
     port                = "5000"
     protocol            = "HTTP"
     matcher             = "200"
@@ -55,6 +55,6 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.ms1_tg.arn
+    target_group_arn = aws_lb_target_group.frontend_service_tg.arn
   }
 }

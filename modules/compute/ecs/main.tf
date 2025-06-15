@@ -53,9 +53,21 @@ resource "aws_iam_role_policy" "ecs_task_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["sqs:*"], Resource = var.sqs_queue_url },
-      { Effect = "Allow", Action = ["s3:*"], Resource = "${var.s3_bucket_arn}/*" },
-      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = "*" }
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:*"]
+        Resource = "arn:aws:sqs:eu-central-1:048999592382:prod-data-queue"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:*"]
+        Resource = "${var.s3_bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token"
+      }
     ]
   })
 }
@@ -76,13 +88,19 @@ resource "aws_iam_role_policy" "ecs_task_execution_policy" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters"]
+        Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token"
       }
     ]
   })
 }
 
-resource "aws_ecs_task_definition" "ms1" {
-  family                   = "${var.cluster_name}-ms1"
+# Frontend Service
+resource "aws_ecs_task_definition" "frontend_service" {
+  family                   = "${var.cluster_name}-frontend-service"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
@@ -90,31 +108,38 @@ resource "aws_ecs_task_definition" "ms1" {
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions = jsonencode([{
-    name  = "microservice-1"
-    image = "amazon/amazon-ecs-sample:latest"  # Replace with your ECR image
+    name  = "frontend-service"
+    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/frontend-service:3"
     portMappings = [{ containerPort = 5000, hostPort = 5000 }]
     essential = true
+    environment = [
+      { name = "AWS_REGION", value = "eu-central-1" },
+      { name = "SQS_QUEUE_URL", value = var.sqs_queue_url }
+    ]
+    secrets = [
+      { name = "TOKEN", valueFrom = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token" }
+    ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        "awslogs-group"         = "/ecs/${var.cluster_name}-ms1"
+        "awslogs-group"         = "/ecs/${var.cluster_name}-frontend-service"
         "awslogs-region"        = "eu-central-1"
-        "awslogs-stream-prefix" = "ms1"
+        "awslogs-stream-prefix" = "frontend"
       }
     }
   }])
 }
 
-resource "aws_cloudwatch_log_group" "ms1" {
-  name              = "/ecs/${var.cluster_name}-ms1"
+resource "aws_cloudwatch_log_group" "frontend_service" {
+  name              = "/ecs/${var.cluster_name}-frontend-service"
   retention_in_days = 7
-  tags = { Name = "${var.cluster_name}-ms1-logs" }
+  tags = { Name = "${var.cluster_name}-frontend-service-logs" }
 }
 
-resource "aws_ecs_service" "ms1" {
-  name            = "${var.cluster_name}-ms1"
+resource "aws_ecs_service" "frontend_service" {
+  name            = "${var.cluster_name}-frontend-service"
   cluster         = aws_ecs_cluster.cluster.id
-  task_definition = aws_ecs_task_definition.ms1.arn
+  task_definition = aws_ecs_task_definition.frontend_service.arn
   desired_count   = 1
   launch_type     = "FARGATE"
   network_configuration {
@@ -124,8 +149,58 @@ resource "aws_ecs_service" "ms1" {
   }
   load_balancer {
     target_group_arn = var.target_group_arn
-    container_name   = "microservice-1"
+    container_name   = "frontend-service"
     container_port   = 5000
+  }
+  depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
+}
+
+# Queue Worker Service
+resource "aws_ecs_task_definition" "queue_worker_service" {
+  family                   = "${var.cluster_name}-queue-worker-service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  container_definitions = jsonencode([{
+    name  = "queue-worker-service"
+    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/sqs-puller-service:2"
+    essential = true
+    environment = [
+      { name = "AWS_REGION", value = "eu-central-1" },
+      { name = "SQS_QUEUE_URL", value = var.sqs_queue_url },
+      { name = "S3_BUCKET_NAME", value = "data-bucket-eliran-prod" },
+      { name = "POLL_INTERVAL", value = "10" }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.cluster_name}-queue-worker-service"
+        "awslogs-region"        = "eu-central-1"
+        "awslogs-stream-prefix" = "queue-worker"
+      }
+    }
+  }])
+}
+
+resource "aws_cloudwatch_log_group" "queue_worker_service" {
+  name              = "/ecs/${var.cluster_name}-queue-worker-service"
+  retention_in_days = 7
+  tags = { Name = "${var.cluster_name}-queue-worker-service-logs" }
+}
+
+resource "aws_ecs_service" "queue_worker_service" {
+  name            = "${var.cluster_name}-queue-worker-service"
+  cluster         = aws_ecs_cluster.cluster.id
+  task_definition = aws_ecs_task_definition.queue_worker_service.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = var.private_subnet_ids
+    security_groups  = [aws_security_group.ecs_sg.id]
+    assign_public_ip = false
   }
   depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
 }
