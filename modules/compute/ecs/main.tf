@@ -91,7 +91,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_policy" {
       },
       {
         Effect   = "Allow"
-        Action   = ["ssm:GetParameters"]
+        Action   = ["ssm:GetParameter"]
         Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token"
       }
     ]
@@ -128,6 +128,9 @@ resource "aws_ecs_task_definition" "frontend_service" {
       }
     }
   }])
+  lifecycle {
+    ignore_changes = [container_definitions]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "frontend_service" {
@@ -154,7 +157,7 @@ resource "aws_ecs_service" "frontend_service" {
   }
   depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
   lifecycle {
-    ignore_changes = [task_definition]
+    create_before_destroy = true
   }
 }
 
@@ -187,7 +190,7 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
     }
   }])
   lifecycle {
-    create_before_destroy = true
+    ignore_changes = [container_definitions]
   }
 }
 
@@ -210,6 +213,6 @@ resource "aws_ecs_service" "queue_worker_service" {
   }
   depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
   lifecycle {
-    ignore_changes = [task_definition]
+    create_before_destroy = true
   }
 }
