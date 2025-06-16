@@ -45,5 +45,9 @@ module "ecs" {
   vpc_id            = module.vpc.vpc_id
   alb_sg_id         = module.alb.alb_sg_id
   target_group_arn  = module.alb.target_group_arn
+  ecr_url_front     = var.ecr_url_front
+  ecr_url_worker    = var.ecr_url_worker
+  frontend_image_tag = var.frontend_image_tag
+  queue_worker_image_tag = var.queue_worker_image_tag
   depends_on        = [module.vpc, module.alb]
 }

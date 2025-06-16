@@ -109,7 +109,7 @@ resource "aws_ecs_task_definition" "frontend_service" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions = jsonencode([{
     name  = "frontend-service"
-    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/frontend-service:3"
+    image = "${var.ecr_url_front}:${var.frontend_image_tag}"
     portMappings = [{ containerPort = 5000, hostPort = 5000 }]
     essential = true
     environment = [
@@ -166,7 +166,7 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions = jsonencode([{
     name  = "queue-worker-service"
-    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/sqs-puller-service:2"
+    image = "${var.ecr_url_worker}:${var.queue_worker_image_tag}"
     essential = true
     environment = [
       { name = "AWS_REGION", value = "eu-central-1" },

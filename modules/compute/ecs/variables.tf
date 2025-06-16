@@ -5,3 +5,7 @@ variable "private_subnet_ids" { type = list(string) }
 variable "vpc_id" { type = string }
 variable "alb_sg_id" { type = string }
 variable "target_group_arn" { type = string }
+variable "ecr_url_front" { type = string }
+variable "ecr_url_worker" { type = string }
+variable "frontend_image_tag" { type = string }
+variable "queue_worker_image_tag" { type = string }

@@ -8,3 +8,7 @@ variable "subnet_cidr_private_b" { type = string }
 variable "region" { type = string }
 variable "alb_name" { type = string }
 variable "ecs_cluster_name" { type = string }
+variable "frontend_image_tag" { type = string }
+variable "queue_worker_image_tag" { type = string }
+variable "ecr_url_front" { type = string }
+variable "ecr_url_worker" { type = string }
