@@ -49,10 +49,6 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: prod
-    permissions:
-      id-token: write
-      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
