@@ -7,10 +7,10 @@ This project provisions a microservices architecture on AWS using Terraform. It 
 - **ECS**: An Elastic Container Service cluster running `frontend-service` and `queue-worker-service` on Fargate.
 - **SQS**: A Simple Queue Service queue for message passing between services.
 - **S3**: Buckets for Terraform state management and application data storage.
+
 ![ee606380-e6c6-4ccb-9e1d-933388af0082](https://github.com/user-attachments/assets/9c0d084c-5527-4c2e-99e1-95ccf070d2de)
 
 ![4a8bc249-b86b-4840-86cc-9b05fb4bef70](https://github.com/user-attachments/assets/71b27eed-c9e3-40c3-9156-d11e88c9c5fc)
-
 
 The `frontend-service` is a Flask application that accepts POST requests, validates them, and sends messages to an SQS queue. The `queue-worker-service` is a Python application that polls the SQS queue, processes messages, and uploads them to an S3 bucket.
 
@@ -54,6 +54,16 @@ terraform apply -auto-approve
 This step:
 - Configures the Terraform backend to use the state bucket created in step 1.
 - Deploys the VPC, ALB, ECS cluster, SQS queue, and related resources using the variables in `terraform.tfvars`.
+
+### Networking
+
+The ECS services (`frontend-service` and `queue-worker-service`) run in **private subnets** for enhanced security, with no direct internet exposure. The `frontend-service` is accessible externally through the **Application Load Balancer (ALB)**, which routes HTTP traffic (port 80) to the service’s container port (5000).
+
+A **NAT Gateway** is deployed in a public subnet to enable outbound internet access for ECS tasks in private subnets. This is required for:
+- Pulling Docker images from Amazon ECR (`048999592382.dkr.ecr.eu-central-1.amazonaws.com`).
+- Accessing AWS services (SQS, S3, SSM) via public endpoints.
+
+For improved security, **VPC endpoints** (AWS PrivateLink) can be configured to route traffic to AWS services (SQS, S3, SSM, ECR) privately within the VPC, reducing reliance on public internet access and enhancing network isolation.
 
 ## Microservices Deployment
 
@@ -99,14 +109,66 @@ To deploy the microservices manually:
    ```
    This updates the ECS task definitions with the new image tags.
 
-### Automated Deployment (CI/CD)
+## CI/CD Pipelines
 
-The project includes GitHub Actions workflows (not provided in the query but referenced in the structure) for automated deployment. These workflows would:
-- Build and push Docker images to ECR.
-- Update `terraform.tfvars` with new image tags.
-- Apply Terraform to redeploy the ECS services.
+The project uses GitHub Actions workflows to automate the deployment of `frontend-service` and `queue-worker-service`. These pipelines ensure consistent, repeatable Infrastructure as Code (IaC) deployments by building Docker images, pushing them to ECR, and updating ECS services via Terraform.
 
-To enable CI/CD, ensure your GitHub repository has AWS credentials configured as secrets.
+### Workflow Files
+- **`.github/workflows/frontend-service.yml`**: Automates deployment for the `frontend-service`.
+- **`.github/workflows/queue-worker-service.yml`**: Automates deployment for the `queue-worker-service`.
+
+### Pipeline Structure
+Each pipeline is triggered by:
+- **Push to `main` branch**: For changes in the respective microservice directory (`microservices/frontend-service/**` or `microservices/queue-worker-service/**`).
+- **Pull requests**: For validating changes to the same directories.
+
+The pipelines include two jobs:
+1. **Build and Push**:
+   - Checks out the code.
+   - Generates a unique image tag (`<github-run-id>-<short-sha>`).
+   - Sets up Docker Buildx for image building.
+   - Assumes an AWS IAM role (`GitHubActionsRole`) for ECR access.
+   - Logs into Amazon ECR.
+   - Builds and pushes the Docker image to ECR (`048999592382.dkr.ecr.eu-central-1.amazonaws.com/<service>:<image_tag>` and `:latest`).
+
+2. **Deploy**:
+   - Checks out the code with a GitHub token for pushing updates.
+   - Updates `environments/prod/terraform.tfvars` with the new image tag (`frontend_image_tag` or `queue_worker_image_tag`).
+   - Sets up Terraform (version 1.12.2).
+   - Assumes the AWS IAM role for deployment.
+   - Runs `terraform init`, `terraform plan`, and `terraform apply` to update the ECS service.
+   - Waits for the ECS service to stabilize using `aws ecs wait services-stable`.
+   - Commits and pushes the updated `terraform.tfvars` to the `main` branch if changes are detected.
+
+### Configuration
+To enable the pipelines:
+- Configure GitHub secrets in your repository:
+  - `AWS_ACCESS_KEY_ID`: AWS access key for the IAM role.
+  - `AWS_SECRET_ACCESS_KEY`: Corresponding secret key.
+  - `GITHUB_TOKEN`: A GitHub token with repository write permissions (auto-generated in workflows).
+- Ensure the AWS IAM role (`arn:aws:iam::048999592382:role/GitHubActionsRole`) has permissions for:
+  - ECR (push/pull images).
+  - ECS (update services).
+  - S3 (access Terraform state).
+  - Terraform (apply changes to infrastructure).
+
+### Pipeline Benefits
+- **Automation**: Eliminates manual deployment steps.
+- **Consistency**: Ensures infrastructure matches the code in `terraform.tfvars`.
+- **Traceability**: Commits to `terraform.tfvars` track image tag updates.
+- **Stability Checks**: Verifies ECS service health post-deployment.
+
+### Troubleshooting Pipelines
+- **Pipeline Failures**:
+  - Check GitHub Actions logs for errors in build, push, or Terraform steps.
+  - Verify AWS credentials and IAM role permissions.
+- **No Changes Committed**:
+  - If the commit step fails due to no changes in `terraform.tfvars`, ensure the image tag is unique (handled by `<github-run-id>-<short-sha>`).
+- **ECS Stabilization Issues**:
+  - Review service events if `aws ecs wait services-stable` fails:
+    ```bash
+    aws ecs describe-services --cluster devops-prod-cluster --services <service-name> --region eu-central-1
+    ```
 
 ## Usage
 
@@ -160,6 +222,12 @@ Returns `{"status": "healthy"}` if running correctly.
   aws elbv2 describe-target-health --target-group-arn <target-group-arn> --region eu-central-1
   ```
   Replace `<target-group-arn>` with the value from `terraform output target_group_arn`.
+
+- **S3 Uploads**:
+  List objects in the bucket to confirm worker activity:
+  ```bash
+  aws s3 ls s3://data-bucket-eliran-prod/processed/
+  ```
 
 ## Directory Structure
 
@@ -223,8 +291,8 @@ This project is organized to separate infrastructure, microservices, and reusabl
 ### Additional Notes
 - **Terraform Modules**: The `modules/` directory follows a modular design, enabling reuse across environments. Each module includes `main.tf` for resources, `outputs.tf` for outputs, and `variables.tf` for inputs.
 - **Microservices**: The `frontend-service` and `queue-worker-service` are containerized using Docker, with images stored in AWS ECR repositories (`frontend-service` and `sqs-puller-service`).
-- **CI/CD**: While not shown in the tree, `.github/workflows/` may contain GitHub Actions workflows for automating microservice deployment (e.g., building/pushing Docker images, updating Terraform).
+- **CI/CD**: The `.github/workflows/` directory contains GitHub Actions workflows for automating microservice deployment (building/pushing Docker images, updating Terraform).
 - **State Management**: Terraform state is stored in an S3 bucket (`terraform-state-bucket-eliran`), with separate keys for root (`global/terraform.tfstate`) and production (`prod/terraform.tfstate`).
-- **Security**: The `.gitignore` file (not listed in the tree) excludes sensitive files (e.g., `*.tfstate`, `.terraform/`) from version control.
+- **Security**: The `.gitignore` file excludes sensitive files (e.g., `*.tfstate`, `.terraform/`) from version control.
 
 This structure supports a scalable microservices architecture, with infrastructure managed by Terraform and applications deployed as Docker containers on ECS Fargate.
