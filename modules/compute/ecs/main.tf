@@ -133,6 +133,13 @@ resource "aws_ecs_task_definition" "frontend_service" {
         "awslogs-stream-prefix" = "frontend"
       }
     }
+    healthCheck = {
+      command     = ["CMD-SHELL", "curl -f http://localhost:5000/ || exit 1"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 60
+    }
   }])
 }
 
@@ -151,6 +158,7 @@ resource "aws_ecs_service" "frontend_service" {
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
   force_new_deployment               = true
+  health_check_grace_period_seconds = 120
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [aws_security_group.ecs_sg.id]
@@ -189,6 +197,13 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
         "awslogs-region"        = "eu-central-1"
         "awslogs-stream-prefix" = "sqs-puller"
       }
+    }
+    healthCheck = {
+      command     = ["CMD-SHELL", "ps aux | grep '[s]qs-puller' || exit 1"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 60
     }
   }])
 }
