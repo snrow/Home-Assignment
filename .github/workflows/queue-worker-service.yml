@@ -82,7 +82,10 @@ jobs:
         working-directory: environments/prod
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "Sleeping 10s to let ECS propagate task definition..."
+          sleep 10
         working-directory: environments/prod
 
       - name: Commit Updated terraform.tfvars
