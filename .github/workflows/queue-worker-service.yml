@@ -81,6 +81,8 @@ jobs:
         run: |
           terraform state rm module.ecs.aws_ecs_task_definition.frontend_service || true
           terraform state rm module.ecs.aws_ecs_task_definition.queue_worker_service || true
+          terraform state rm module.ecs.aws_ecs_service.frontend_service || true
+          terraform state rm module.ecs.aws_ecs_service.queue_worker_service || true
         working-directory: environments/prod
 
       - name: Terraform Plan
