@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import boto3
 import os
 from datetime import datetime
- 
+  
 app = Flask(__name__)
 
 # Initialize AWS clients
