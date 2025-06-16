@@ -63,13 +63,12 @@ jobs:
       - name: Update terraform.tfvars
         run: |
           sed -i 's/^queue_worker_image_tag = .*/queue_worker_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
-          sed -i 's/^unique_id = .*/unique_id = "${{ github.run_id }}"/' environments/prod/terraform.tfvars
         working-directory: .
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.9.2
 
       - name: Assume AWS Role
         uses: aws-actions/configure-aws-credentials@v4
@@ -89,7 +88,16 @@ jobs:
         run: |
           terraform apply -auto-approve tfplan
           echo "Waiting for ECS services to stabilize..."
-          aws ecs wait services-stable --cluster devops-prod-cluster --services frontend-service-${{ github.run_id }} queue-worker-service-${{ github.run_id }} --region eu-central-1
+          if ! aws ecs wait services-stable --cluster devops-prod-cluster --services frontend-service queue-worker-service --region eu-central-1; then
+            echo "Service stabilization failed. Checking service events..."
+            aws ecs describe-services --cluster devops-prod-cluster --services frontend-service queue-worker-service --region eu-central-1
+            echo "Checking task failures..."
+            TASK_ARNS=$(aws ecs list-tasks --cluster devops-prod-cluster --service-name frontend-service --region eu-central-1 --query 'taskArns' --output text)
+            if [ -n "$TASK_ARNS" ]; then
+              aws ecs describe-tasks --cluster devops-prod-cluster --tasks $TASK_ARNS --region eu-central-1
+            fi
+            exit 1
+          fi
         working-directory: environments/prod
 
       - name: Commit Updated terraform.tfvars
@@ -97,6 +105,6 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add environments/prod/terraform.tfvars
-          git commit -m "Update queue_worker_image_tag to ${{ needs.build-and-push.outputs.image_tag }} and unique_id to ${{ github.run_id }}"
+          git commit -m "Update queue_worker_image_tag to ${{ needs.build-and-push.outputs.image_tag }}"
           git push origin main
         working-directory: .
