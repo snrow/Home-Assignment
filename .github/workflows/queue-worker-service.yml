@@ -23,7 +23,9 @@ jobs:
 
       - name: Set Image Tag
         id: set-tag
-        run: echo "image_tag=${{ github.run_id }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${{ github.run_id }}-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -57,7 +59,7 @@ jobs:
 
       - name: Update terraform.tfvars
         run: |
-          sed -i 's/queue_worker_image_tag = .*/queue_worker_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
+          sed -i 's/^queue_worker_image_tag = .*/queue_worker_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
         working-directory: .
 
       - name: Set up Terraform
