@@ -7,6 +7,10 @@ This project provisions a microservices architecture on AWS using Terraform. It 
 - **ECS**: An Elastic Container Service cluster running `frontend-service` and `queue-worker-service` on Fargate.
 - **SQS**: A Simple Queue Service queue for message passing between services.
 - **S3**: Buckets for Terraform state management and application data storage.
+![ee606380-e6c6-4ccb-9e1d-933388af0082](https://github.com/user-attachments/assets/9c0d084c-5527-4c2e-99e1-95ccf070d2de)
+
+![4a8bc249-b86b-4840-86cc-9b05fb4bef70](https://github.com/user-attachments/assets/71b27eed-c9e3-40c3-9156-d11e88c9c5fc)
+
 
 The `frontend-service` is a Flask application that accepts POST requests, validates them, and sends messages to an SQS queue. The `queue-worker-service` is a Python application that polls the SQS queue, processes messages, and uploads them to an S3 bucket.
 
