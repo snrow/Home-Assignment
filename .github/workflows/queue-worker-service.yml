@@ -67,7 +67,7 @@ jobs:
           terraform_version: 1.5.0
 
       - name: Assume AWS Role
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::048999592382:role/GitHubActionsRole
           aws-region: eu-central-1
