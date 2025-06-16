@@ -150,7 +150,6 @@ resource "aws_ecs_service" "frontend_service" {
   launch_type                       = "FARGATE"
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
-  force_new_deployment               = true
   health_check_grace_period_seconds = 120
   network_configuration {
     subnets          = var.private_subnet_ids
@@ -208,7 +207,6 @@ resource "aws_ecs_service" "queue_worker_service" {
   launch_type                       = "FARGATE"
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
-  force_new_deployment               = true
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [aws_security_group.ecs_sg.id]
