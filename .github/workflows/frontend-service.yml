@@ -62,7 +62,7 @@ jobs:
 
       - name: Update terraform.tfvars
         run: |
-          sed -i 's/^frontend_image_tag = .*/frontend_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
+          sed -i 's/^frontend_image_tag[[:space:]]*=[[:space:]]*.*/frontend_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
         working-directory: .
 
       - name: Set up Terraform
