@@ -156,9 +156,6 @@ resource "aws_ecs_service" "frontend_service" {
     container_port   = 5000
   }
   depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # Queue Worker Service
@@ -212,7 +209,4 @@ resource "aws_ecs_service" "queue_worker_service" {
     assign_public_ip = false
   }
   depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
-  lifecycle {
-    create_before_destroy = true
-  }
 }
