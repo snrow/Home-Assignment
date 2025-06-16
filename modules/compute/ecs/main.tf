@@ -115,7 +115,7 @@ resource "aws_ecs_task_definition" "frontend_service" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions = jsonencode([{
     name  = "frontend"
-    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/sqs-puller-service:${var.queue_worker_image_tag}"
+    image = "${var.ecr_url_front}:${var.frontend_image_tag}"
     portMappings = [{ containerPort = 5000, hostPort = 5000, protocol = "tcp" }]
     essential = true
     environment = [
@@ -132,13 +132,6 @@ resource "aws_ecs_task_definition" "frontend_service" {
         "awslogs-region"        = "eu-central-1"
         "awslogs-stream-prefix" = "frontend"
       }
-    }
-    healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:5000/ || exit 1"]
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 60
     }
   }])
 }
@@ -183,7 +176,7 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions = jsonencode([{
     name  = "sqs-puller"
-    image = "048999592382.dkr.ecr.eu-central-1.amazonaws.com/sqs-puller-service:${var.queue_worker_image_tag}"
+    image = "${var.ecr_url_worker}:${var.queue_worker_image_tag}"
     portMappings = [{ containerPort = 5001, hostPort = 5001, protocol = "tcp" }]
     essential = true
     environment = [
@@ -197,13 +190,6 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
         "awslogs-region"        = "eu-central-1"
         "awslogs-stream-prefix" = "sqs-puller"
       }
-    }
-    healthCheck = {
-      command     = ["CMD-SHELL", "ps aux | grep '[s]qs-puller' || exit 1"]
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 60
     }
   }])
 }
