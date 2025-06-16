@@ -73,14 +73,14 @@ jobs:
           role-to-assume: arn:aws:iam::048999592382:role/GitHubActionsRole
           aws-region: eu-central-1
 
+      - name: Terraform Init
+        run: terraform init
+        working-directory: environments/prod
+
       - name: Remove Stale Terraform State
         run: |
           terraform state rm module.ecs.aws_ecs_task_definition.frontend_service || true
           terraform state rm module.ecs.aws_ecs_task_definition.queue_worker_service || true
-        working-directory: environments/prod
-        
-      - name: Terraform Init
-        run: terraform init
         working-directory: environments/prod
 
       - name: Terraform Plan
