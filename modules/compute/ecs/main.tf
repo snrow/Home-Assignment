@@ -57,9 +57,21 @@ resource "aws_iam_role_policy" "ecs_task_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["sqs:*"], Resource = var.sqs_queue_url },
-      { Effect = "Allow", Action = ["s3:*"], Resource = "${var.s3_bucket_arn}/*" },
-      { Effect = "Allow", Action = ["ssm:GetParameter", "ssm:GetParameters"], Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token" }
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:*"]
+        Resource = "arn:aws:sqs:eu-central-1:048999592382:prod-data-queue"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:*"]
+        Resource = "${var.s3_bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
+        Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token"
+      }
     ]
   })
 }
@@ -84,8 +96,8 @@ resource "aws_iam_role_policy" "ecs_task_execution_policy" {
         Resource = "*"
       },
       {
-        Effect = "Allow"
-        Action = ["ssm:GetParameter", "ssm:GetParameters"]
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
         Resource = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token"
       }
     ]
@@ -108,7 +120,7 @@ resource "aws_ecs_task_definition" "frontend_service" {
     essential = true
     environment = [
       { name = "AWS_REGION", value = "eu-central-1" },
-      { name = "SQS_QUEUE_URL", value = var.sqs_queue_url }
+      { name = "SQS_QUEUE_URL", value = "https://sqs.eu-central-1.amazonaws.com/048999592382/prod-data-queue" }
     ]
     secrets = [
       { name = "TOKEN", valueFrom = "arn:aws:ssm:eu-central-1:048999592382:parameter/app/frontend/token" }
@@ -149,7 +161,7 @@ resource "aws_ecs_service" "frontend_service" {
     container_name   = "frontend"
     container_port   = 5000
   }
-  depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
+  depends_on = [aws_iam_role_policy.ecs_task_execution_policy, aws_iam_role_policy.ecs_task_policy]
 }
 
 # queue_worker_service
@@ -168,7 +180,7 @@ resource "aws_ecs_task_definition" "queue_worker_service" {
     essential = true
     environment = [
       { name = "AWS_REGION", value = "eu-central-1" },
-      { name = "SQS_QUEUE_URL", value = var.sqs_queue_url }
+      { name = "SQS_QUEUE_URL", value = "https://sqs.eu-central-1.amazonaws.com/048999592382/prod-data-queue" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -201,5 +213,5 @@ resource "aws_ecs_service" "queue_worker_service" {
     security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = false
   }
-  depends_on = [aws_iam_role_policy.ecs_task_execution_policy]
+  depends_on = [aws_iam_role_policy.ecs_task_execution_policy, aws_iam_role_policy.ecs_task_policy]
 }
