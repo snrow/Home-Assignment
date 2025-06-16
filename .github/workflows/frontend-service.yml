@@ -2,6 +2,9 @@ name: Frontend Service CI/CD
 permissions:
   id-token: write
   contents: write
+concurrency:
+  group: frontend-service-deploy
+  cancel-in-progress: true
 on:
   push:
     branches:
@@ -23,7 +26,9 @@ jobs:
 
       - name: Set Image Tag
         id: set-tag
-        run: echo "image_tag=${{ github.run_id }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${{ github.run_id }}-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -57,7 +62,7 @@ jobs:
 
       - name: Update terraform.tfvars
         run: |
-          sed -i 's/frontend_image_tag = .*/frontend_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
+          sed -i 's/^frontend_image_tag = .*/frontend_image_tag = "${{ needs.build-and-push.outputs.image_tag }}"/' environments/prod/terraform.tfvars
         working-directory: .
 
       - name: Set up Terraform
@@ -80,7 +85,19 @@ jobs:
         working-directory: environments/prod
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "Waiting for ECS service to stabilize..."
+          if ! aws ecs wait services-stable --cluster devops-prod-cluster --services frontend-service --region eu-central-1; then
+            echo "Service stabilization failed. Checking service events..."
+            aws ecs describe-services --cluster devops-prod-cluster --services frontend-service --region eu-central-1
+            echo "Checking task failures..."
+            TASK_ARNS=$(aws ecs list-tasks --cluster devops-prod-cluster --service-name frontend-service --region eu-central-1 --query 'taskArns' --output text)
+            if [ -n "$TASK_ARNS" ]; then
+              aws ecs describe-tasks --cluster devops-prod-cluster --tasks $TASK_ARNS --region eu-central-1
+            fi
+            exit 1
+          fi
         working-directory: environments/prod
 
       - name: Commit Updated terraform.tfvars
