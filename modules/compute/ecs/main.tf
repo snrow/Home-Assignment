@@ -140,7 +140,7 @@ resource "aws_cloudwatch_log_group" "frontend_service" {
 }
 
 resource "aws_ecs_service" "frontend_service" {
-  name            = "${var.cluster_name}-frontend-service"
+  name            = "frontend-service${var.unique_id != "" ? "-${var.unique_id}" : ""}"
   cluster         = aws_ecs_cluster.cluster.id
   task_definition = aws_ecs_task_definition.frontend_service.arn
   desired_count   = 1
@@ -198,7 +198,7 @@ resource "aws_cloudwatch_log_group" "queue_worker_service" {
 }
 
 resource "aws_ecs_service" "queue_worker_service" {
-  name            = "${var.cluster_name}-queue-worker-service"
+  name            = "queue-worker-service${var.unique_id != "" ? "-${var.unique_id}" : ""}"
   cluster         = aws_ecs_cluster.cluster.id
   task_definition = aws_ecs_task_definition.queue_worker_service.arn
   desired_count   = 1
